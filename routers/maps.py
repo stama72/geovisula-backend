@@ -146,12 +146,13 @@ def delete_map(
 @router.get("/maps/{map_id}")
 def get_map(
     map_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     map = db.query(Map).filter(Map.id == map_id).first()
     if not map:
         raise HTTPException(status_code=404, detail="マップが見つかりません")
-    if map.read_permission == "private":
+    if map.read_permission == "private" and map.owner != current_user.id:
         raise HTTPException(status_code=403, detail="このマップを閲覧する権限がありません")
     if map.read_permission == "shared":
         #追加で招待リンクが正しいかの確認が必要
@@ -175,6 +176,7 @@ def get_map(
 
 @router.get("/maps")
 def get_maps(
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     maps = db.query(Map).all()
@@ -193,7 +195,7 @@ def get_maps(
             "summary_jp": m.summary_jp,
             "regulations": m.regulations
         }
-        for m in maps
+        for m in maps if m.read_permission == "public" or (m.read_permission == "shared") or (m.read_permission == "private" and m.owner == current_user.id)
     ]
 
 

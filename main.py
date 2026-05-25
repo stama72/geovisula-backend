@@ -8,8 +8,16 @@ from models import User
 from auth import hash_password, verify_password, create_access_token
 import routers.countries as countries
 import routers.links as links
-import routers.mapPoints as mappoints
 import routers.maps as maps
+try:
+    import routers.mapPoints as mappoints
+except ImportError as e:
+    print(f"Error importing mapPoints router")
+try:
+    import routers.mappoints as mappoints
+except ImportError as e:
+    print(f"Error importing mapPoints router")
+
 
 app = FastAPI()
 
