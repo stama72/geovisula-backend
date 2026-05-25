@@ -180,6 +180,7 @@ def get_maps(
     db: Session = Depends(get_db)
 ):
     maps = db.query(Map).all()
+    maps = [m for m in maps if m.read_permission == "public" or (m.read_permission == "shared") or (m.read_permission == "private" and m.owner == current_user.id)]
     return [
         {
             "id": m.id,
@@ -195,7 +196,7 @@ def get_maps(
             "summary_jp": m.summary_jp,
             "regulations": m.regulations
         }
-        for m in maps if m.read_permission == "public" or (m.read_permission == "shared") or (m.read_permission == "private" and m.owner == current_user.id)
+        for m in maps
     ]
 
 
