@@ -5,7 +5,7 @@
 -- System Tables
 -- ========================================
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id            SERIAL PRIMARY KEY,
     name          VARCHAR(255) UNIQUE NOT NULL,
     display_name  VARCHAR(255) NOT NULL,
@@ -22,7 +22,7 @@ CREATE TABLE users (
 -- Geographic & Political Entities
 -- ========================================
 
-CREATE TABLE points (
+CREATE TABLE IF NOT EXISTS points (
     id         SERIAL PRIMARY KEY,
     name       VARCHAR(255) NOT NULL,
     name_ja    VARCHAR(255) NOT NULL,
@@ -32,10 +32,10 @@ CREATE TABLE points (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_points_name ON points(name);
+CREATE INDEX IF NOT EXISTS idx_points_name ON points(name);
 
 
-CREATE TABLE countries (
+CREATE TABLE IF NOT EXISTS countries (
     iso_id     VARCHAR(16) PRIMARY KEY,
     name       VARCHAR(255) NOT NULL,
     name_ja    VARCHAR(255) NOT NULL,
@@ -48,10 +48,10 @@ CREATE TABLE countries (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_countries_name ON countries(name);
+CREATE INDEX IF NOT EXISTS idx_countries_name ON countries(name);
 
 -- 以下未実装
-CREATE TABLE international_orgs (
+CREATE TABLE IF NOT EXISTS international_orgs (
     id                   SERIAL PRIMARY KEY,
     name                 VARCHAR(255) NOT NULL,
     name_ja              VARCHAR(255) NOT NULL,
@@ -64,10 +64,10 @@ CREATE TABLE international_orgs (
     updated_at           TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_international_orgs_name ON international_orgs(name);
+CREATE INDEX IF NOT EXISTS idx_international_orgs_name ON international_orgs(name);
 
 
-CREATE TABLE member_countries (
+CREATE TABLE IF NOT EXISTS member_countries (
     id                SERIAL PRIMARY KEY,
     org_id            INTEGER NOT NULL REFERENCES international_orgs(id),
     country_id        VARCHAR(255) NOT NULL REFERENCES countries(iso_id),
@@ -80,11 +80,11 @@ CREATE TABLE member_countries (
     UNIQUE(org_id, country_id, joined_at)
 );
 
-CREATE INDEX idx_member_countries_org_id ON member_countries(org_id);
-CREATE INDEX idx_member_countries_country_id ON member_countries(country_id);
+CREATE INDEX IF NOT EXISTS idx_member_countries_org_id ON member_countries(org_id);
+CREATE INDEX IF NOT EXISTS idx_member_countries_country_id ON member_countries(country_id);
 
 
-CREATE TABLE member_orgs (
+CREATE TABLE IF NOT EXISTS member_orgs (
     id                SERIAL PRIMARY KEY,
     greater_org_id    INTEGER NOT NULL REFERENCES international_orgs(id),
     member_org_id     INTEGER NOT NULL REFERENCES international_orgs(id),
@@ -97,11 +97,11 @@ CREATE TABLE member_orgs (
     CONSTRAINT no_self_membership CHECK (greater_org_id <> member_org_id)
 );
 
-CREATE INDEX idx_member_orgs_greater_org_id ON member_orgs(greater_org_id);
-CREATE INDEX idx_member_orgs_member_org_id ON member_orgs(member_org_id);
+CREATE INDEX IF NOT EXISTS idx_member_orgs_greater_org_id ON member_orgs(greater_org_id);
+CREATE INDEX IF NOT EXISTS idx_member_orgs_member_org_id ON member_orgs(member_org_id);
 
 
-CREATE TABLE local_forces (
+CREATE TABLE IF NOT EXISTS local_forces (
     id                   SERIAL PRIMARY KEY,
     name                 VARCHAR(255) NOT NULL,
     name_ja              VARCHAR(255) NOT NULL,
@@ -114,14 +114,14 @@ CREATE TABLE local_forces (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_local_forces_name ON local_forces(name);
+CREATE INDEX IF NOT EXISTS idx_local_forces_name ON local_forces(name);
 
 
 -- ========================================
 -- Maps & Links (Visualizations)
 -- ========================================
 
-CREATE TABLE maps (
+CREATE TABLE IF NOT EXISTS maps (
     id                   SERIAL PRIMARY KEY,
     name                 VARCHAR(255) NOT NULL,
     name_ja              VARCHAR(255) NOT NULL,
@@ -146,9 +146,9 @@ CREATE TABLE maps (
     )
 );
 
-CREATE INDEX idx_maps_owner ON maps(owner);
+CREATE INDEX IF NOT EXISTS idx_maps_owner ON maps(owner);
 
-CREATE TABLE map_points (
+CREATE TABLE IF NOT EXISTS map_points (
     id       SERIAL PRIMARY KEY,
     map_id   INTEGER NOT NULL REFERENCES maps(id),
     point_id INTEGER NOT NULL REFERENCES points(id),
@@ -158,7 +158,7 @@ CREATE TABLE map_points (
     UNIQUE(map_id, point_id)
 );
 
-CREATE TABLE link_types (
+CREATE TABLE IF NOT EXISTS link_types (
     id        SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     name_ja VARCHAR(255) NOT NULL,
@@ -169,10 +169,10 @@ CREATE TABLE link_types (
     updated_at    TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_link_types_map_id ON link_types(map_id);
+CREATE INDEX IF NOT EXISTS idx_link_types_map_id ON link_types(map_id);
 
 
-CREATE TABLE links (
+CREATE TABLE IF NOT EXISTS links (
     id            SERIAL PRIMARY KEY,
     map_id        INTEGER NOT NULL REFERENCES maps(id),
     link_type     INTEGER NOT NULL REFERENCES link_types(id),
@@ -185,13 +185,13 @@ CREATE TABLE links (
     UNIQUE(map_id, link_type, point_from, point_to, exist_from)
 );
 
-CREATE INDEX idx_links_map_id ON links(map_id);
-CREATE INDEX idx_links_point_from ON links(point_from);
-CREATE INDEX idx_links_point_to ON links(point_to);
-CREATE INDEX idx_links_link_type ON links(link_type);
+CREATE INDEX IF NOT EXISTS idx_links_map_id ON links(map_id);
+CREATE INDEX IF NOT EXISTS idx_links_point_from ON links(point_from);
+CREATE INDEX IF NOT EXISTS idx_links_point_to ON links(point_to);
+CREATE INDEX IF NOT EXISTS idx_links_link_type ON links(link_type);
 
 
-CREATE TABLE link_details (
+CREATE TABLE IF NOT EXISTS link_details (
     link_id    INTEGER PRIMARY KEY REFERENCES links(id) ON DELETE CASCADE,
     summary    TEXT NOT NULL,
     summary_ja TEXT NOT NULL,
