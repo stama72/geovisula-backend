@@ -12,11 +12,11 @@ import routers.maps as maps
 try:
     import routers.mapPoints as mappoints
 except ImportError as e:
-    print(f"Error importing mapPoints router")
+    print(f"Error failed to import mapPoints router")
 try:
     import routers.mappoints as mappoints
 except ImportError as e:
-    print(f"Error importing mapPoints router")
+    print(f"Error failed to import mappoints router")
 
 
 app = FastAPI()

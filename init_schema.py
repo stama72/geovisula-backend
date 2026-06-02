@@ -4,6 +4,15 @@ import os
 import psycopg2
 
 
+def _make_idempotent(statement: str) -> str:
+    normalized = statement.lstrip()
+    if normalized.upper().startswith("CREATE TABLE "):
+        return statement.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ", 1)
+    if normalized.upper().startswith("CREATE INDEX "):
+        return statement.replace("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ", 1)
+    return statement
+
+
 def main() -> None:
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
@@ -26,7 +35,7 @@ def main() -> None:
     with psycopg2.connect(database_url) as conn:
         with conn.cursor() as cur:
             for statement in statements:
-                cur.execute(statement)
+                cur.execute(_make_idempotent(statement))
 
     print(f"Executed {len(statements)} SQL statements from {sql_path}")
 
