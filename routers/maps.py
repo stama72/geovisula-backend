@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -31,7 +31,16 @@ class LinkTypeIn(BaseModel):
     animated: bool
 
 
+class LinkTypeOrderIn(BaseModel):
+    map_id: int
+    ordered_ids: List[int]
+
+
 router = APIRouter(prefix="/api", tags=["maps"])
+
+
+def ensure_link_type_sort_order(db: Session):
+    return None
 
 
 def can_edit_map(
@@ -50,6 +59,17 @@ def can_edit_map(
     if map.edit_permission == "private" and map.owner == user.id:
         return True
     return False
+
+
+def resequence_link_types(db: Session, map_id: int) -> None:
+    remaining = (
+        db.query(LinkType)
+        .filter(LinkType.map_id == map_id)
+        .order_by(LinkType.sort_order.asc(), LinkType.id.asc())
+        .all()
+    )
+    for index, item in enumerate(remaining):
+        item.sort_order = index
 
 
 @router.get("/maps/{map_id}/editable")
@@ -271,10 +291,20 @@ def create_link_type(
     if not can_edit_map(link_type.map_id, current_user, db):
         raise HTTPException(status_code=403, detail="このマップにリンクタイプを追加する権限がありません")
 
+    next_sort_order = (
+        db.query(LinkType)
+        .filter(LinkType.map_id == link_type.map_id)
+        .with_entities(LinkType.sort_order)
+        .order_by(LinkType.sort_order.desc(), LinkType.id.desc())
+        .first()
+    )
+    next_sort_value = (next_sort_order[0] if next_sort_order and next_sort_order[0] is not None else -1) + 1
+
     new_link_type = LinkType(
         name=link_type.name,
         name_ja=link_type.name_ja,
         map_id=link_type.map_id,
+        sort_order=next_sort_value,
         color=link_type.color,
         animated=link_type.animated
     )
@@ -286,6 +316,7 @@ def create_link_type(
         "name": new_link_type.name,
         "name_ja": new_link_type.name_ja,
         "map_id": new_link_type.map_id,
+        "sort_order": new_link_type.sort_order,
         "color": new_link_type.color,
         "animated": new_link_type.animated
     }
@@ -333,6 +364,17 @@ def delete_link_type(
     if not can_edit_map(map_id, current_user, db):
         raise HTTPException(status_code=403, detail="このマップのリンクタイプを削除する権限がありません")
 
+    linked_count = (
+        db.query(Link)
+        .filter(Link.map_id == map_id, Link.link_type == link_type_id)
+        .count()
+    )
+    if linked_count > 0:
+        raise HTTPException(
+            status_code=409,
+            detail=f"このリンクタイプは {linked_count} 件のリンクで使用中のため削除できません",
+        )
+
     existing = db.query(LinkType).filter(
         LinkType.id == link_type_id,
         LinkType.map_id == map_id
@@ -340,21 +382,56 @@ def delete_link_type(
     if not existing:
         raise HTTPException(status_code=404, detail="リンクタイプが見つかりません")
     db.delete(existing)
+    db.flush()
+
+    resequence_link_types(db, map_id)
+
     db.commit()
     return {"detail": "リンクタイプが削除されました"}
+
+
+@router.put("/link_types/order")
+def reorder_link_types(
+    body: LinkTypeOrderIn,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not can_edit_map(body.map_id, current_user, db):
+        raise HTTPException(status_code=403, detail="このマップのリンクタイプ順序を更新する権限がありません")
+
+    existing = db.query(LinkType).filter(LinkType.map_id == body.map_id).all()
+    existing_ids = {item.id for item in existing}
+    requested_ids = body.ordered_ids
+
+    if len(requested_ids) != len(existing_ids) or set(requested_ids) != existing_ids:
+        raise HTTPException(status_code=400, detail="ordered_ids が現在のリンクタイプ一覧と一致しません")
+
+    for index, link_type_id in enumerate(requested_ids):
+        db.query(LinkType).filter(LinkType.id == link_type_id, LinkType.map_id == body.map_id).update(
+            {"sort_order": index}, synchronize_session=False
+        )
+
+    db.commit()
+    return {"detail": "リンクタイプの順序を保存しました"}
 
 @router.get("/link_types")
 def get_link_types(
     map_id: int,
     db: Session = Depends(get_db)
 ):
-    link_types = db.query(LinkType).filter(LinkType.map_id == map_id).all()
+    link_types = (
+        db.query(LinkType)
+        .filter(LinkType.map_id == map_id)
+        .order_by(LinkType.sort_order.asc(), LinkType.id.asc())
+        .all()
+    )
     return [
         {
             "id": lt.id,
             "name": lt.name,
             "name_ja": lt.name_ja,
             "map_id": lt.map_id,
+            "sort_order": lt.sort_order,
             "color": lt.color,
             "animated": lt.animated
         }

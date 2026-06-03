@@ -200,6 +200,7 @@ class LinkType(Base):
     name = Column(String(255), nullable=False)
     name_ja = Column(String(255), nullable=False)
     map_id = Column(Integer, ForeignKey("maps.id"), nullable=False)
+    sort_order = Column(Integer, nullable=False, server_default=text("0"))
     color = Column(String(16))
     animated = Column(Boolean, server_default=text("false"))
     created_at = Column(DateTime, server_default=func.now())

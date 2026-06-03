@@ -4,6 +4,7 @@ import os
 import psycopg2
 
 
+"""
 def _make_idempotent(statement: str) -> str:
     normalized = statement.lstrip()
     if normalized.upper().startswith("CREATE TABLE "):
@@ -12,7 +13,6 @@ def _make_idempotent(statement: str) -> str:
         return statement.replace("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ", 1)
     return statement
 
-"""
 def main() -> None:
     database_url = os.getenv("DATABASE_URL")
     if not database_url:

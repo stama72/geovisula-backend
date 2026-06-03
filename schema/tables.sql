@@ -163,6 +163,7 @@ CREATE TABLE IF NOT EXISTS link_types (
     name VARCHAR(255) NOT NULL,
     name_ja VARCHAR(255) NOT NULL,
     map_id    INTEGER NOT NULL REFERENCES maps(id),
+    sort_order INTEGER NOT NULL DEFAULT 0,
     color     VARCHAR(16),
     animated  BOOLEAN DEFAULT FALSE,
     created_at    TIMESTAMP DEFAULT NOW(),
