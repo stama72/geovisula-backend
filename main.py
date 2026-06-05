@@ -30,9 +30,14 @@ else:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/debug/cors")
+def debug_cors():
+    return {"cors_origins": cors_origins}
 
 app.include_router(maps.router)
 app.include_router(countries.router)

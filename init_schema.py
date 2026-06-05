@@ -45,4 +45,5 @@ def main() -> None:
     
 
 if __name__ == "__main__":
-    main()
+    #main()
+    print("This script is deprecated. Please use Alembic to manage migrations instead.")
