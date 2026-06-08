@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User
-from auth import hash_password, verify_password, create_access_token
+from auth import hash_password, verify_password, create_access_token, create_guest_credentials
 import routers.countries as countries
 import routers.links as links
 import routers.maps as maps
@@ -53,6 +53,9 @@ class LoginIn(BaseModel):
     name:    str
     password: str
 
+class GuestIn(BaseModel):
+    guestSessionId: str
+
 @app.post("/api/auth/register")
 def register(body: RegisterIn, db: Session = Depends(get_db)):
     if db.query(User).filter(User.name == body.name).first():
@@ -76,3 +79,32 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
     token = create_access_token(user.id, user.role)
     return {"access_token": token, "token_type": "bearer",
             "display_name": user.display_name, "role": user.role}
+
+@app.post("/api/auth/guest")
+def guest_login(body: GuestIn, db: Session = Depends(get_db)):
+    guest_session_id = body.guestSessionId.strip()
+    if not guest_session_id:
+        raise HTTPException(status_code=400, detail="guestSessionId が必要です")
+
+    guest_name = f"guest:{guest_session_id}"
+    user = db.query(User).filter(User.name == guest_name).first()
+    if not user:
+        _, password_hash = create_guest_credentials(guest_session_id)
+        user = User(
+            name=guest_name,
+            password_hash=password_hash,
+            display_name="ゲスト",
+            role="viewer",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    token = create_access_token(user.id, user.role)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "display_name": user.display_name,
+        "role": user.role,
+        "guestSessionId": guest_session_id,
+    }

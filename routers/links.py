@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from os import link
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -107,8 +108,13 @@ def delete_link(
 @router.get("/links/{link_id}/details")
 def get_link_details(
     link_id: int,
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    link = db.query(Link).filter(Link.id == link_id).first()
+    if not link:
+        raise HTTPException(status_code=404, detail="リンクが見つかりません")
+    _require_edit_access(link, user, db)
     details = db.query(LinkDetails).filter(LinkDetails.link_id == link_id).first()
     if not details:
         raise HTTPException(status_code=404, detail="リンク詳細が見つかりません")
@@ -186,8 +192,11 @@ def get_links(
     map_id: int,
     link_type: int,
     date: datetime,
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if not maps.can_view_map(map_id, user, db):
+        raise HTTPException(status_code=403, detail="このマップのリンクを表示する権限がありません")
     rows = db.query(Link).filter(Link.map_id == map_id, Link.link_type == link_type).all()
 
     date_qualified_rows = []
