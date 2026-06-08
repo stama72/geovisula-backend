@@ -42,6 +42,22 @@ router = APIRouter(prefix="/api", tags=["maps"])
 def ensure_link_type_sort_order(db: Session):
     return None
 
+def can_view_map(
+    map_id: int,
+    user: User,
+    db: Session = Depends(get_db)
+):
+    map = db.query(Map).filter(Map.id == map_id).first()
+    if not map:
+        raise HTTPException(status_code=404, detail="マップが見つかりません")
+    if map.read_permission == "public":
+        return True
+    if map.read_permission == "shared":
+        #追加で招待リンクが正しいかの確認が必要
+        return True
+    if map.read_permission == "private" and map.owner == user.id:
+        return True
+    return False
 
 def can_edit_map(
     map_id: int,
@@ -84,8 +100,11 @@ def get_map_editable(
 @router.post("/maps")
 def create_map(
     map: MapIn,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    if not require_role("editor")(current_user):
+        raise HTTPException(status_code=403, detail="マップを作成する権限がありません")
     new_map = Map(
         name=map.name,
         name_ja=map.name_ja,
@@ -170,15 +189,11 @@ def get_map(
     db: Session = Depends(get_db)
 ):
     map = db.query(Map).filter(Map.id == map_id).first()
-    if not map:
-        raise HTTPException(status_code=404, detail="マップが見つかりません")
-    if map.read_permission == "private" and map.owner != current_user.id:
-        raise HTTPException(status_code=403, detail="このマップを閲覧する権限がありません")
-    if map.read_permission == "shared":
-        #追加で招待リンクが正しいかの確認が必要
-        pass
-    if map.read_permission == "public":
-        pass
+    try:
+        if not can_view_map(map_id, current_user, db):
+            raise HTTPException(status_code=403, detail="このマップを表示する権限がありません")
+    except HTTPException:
+        raise
     return {
         "id": map.id,
         "name": map.name,
@@ -215,7 +230,7 @@ def get_maps(
             "summary_jp": m.summary_jp,
             "regulations": m.regulations
         }
-        for m in maps if m.read_permission == "public" or (m.read_permission == "shared") or (m.read_permission == "private" and m.owner == current_user.id)
+        for m in maps if can_view_map(m.id, current_user, db)
     ]
 
 
@@ -224,8 +239,11 @@ def create_map_point(
     map_id: int,
     color: str,
     PointIn: PointIn,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if not can_edit_map(map_id, current_user, db):
+        raise HTTPException(status_code=403, detail="このマップを編集する権限がありません")
     point = add_point(
         body=PointIn,
         db=db
@@ -250,8 +268,11 @@ def update_map_point(
     map_id: int,
     map_point_id: int,
     color: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if not can_edit_map(map_id, current_user, db):
+        raise HTTPException(status_code=403, detail="このマップを編集する権限がありません")
     map_point = db.query(MapPoint).filter(MapPoint.id == map_point_id, MapPoint.map_id == map_id).first()
     if not map_point:
         raise HTTPException(status_code=404, detail="マップポイントが見つかりません")
@@ -268,8 +289,11 @@ def update_map_point(
 @router.get("/maps/{map_id}/map_points")
 def get_map_points(
     map_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if not can_view_map(map_id, current_user, db):
+        raise HTTPException(status_code=403, detail="このマップを表示する権限がありません")
     map_points = db.query(MapPoint).filter(MapPoint.map_id == map_id).all()
     return [
         {
@@ -417,8 +441,12 @@ def reorder_link_types(
 @router.get("/link_types")
 def get_link_types(
     map_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if not can_view_map(map_id, current_user, db):
+        raise HTTPException(status_code=403, detail="このマップを表示する権限がありません")
+
     link_types = (
         db.query(LinkType)
         .filter(LinkType.map_id == map_id)

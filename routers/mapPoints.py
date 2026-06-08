@@ -136,7 +136,8 @@ def delete_map_point(
 def get_map_point(
     map_id: int,
     map_point_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("viewer"))
 ):
     map_point = db.query(MapPoint).filter(MapPoint.map_id == map_id, MapPoint.id == map_point_id).first()
     if not map_point:
@@ -151,7 +152,8 @@ def get_map_point(
 @router.get("/maps/{map_id}/map_points")
 def get_map_points(
     map_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("viewer"))
 ):
     map_points = db.query(MapPoint).filter(MapPoint.map_id == map_id).all()
     return [

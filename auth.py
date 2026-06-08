@@ -1,4 +1,5 @@
 import os
+import secrets
 from datetime import datetime, timedelta
 import bcrypt
 from jose import JWTError, jwt
@@ -42,6 +43,11 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
     return user
+
+def create_guest_credentials(guest_session_id: str) -> tuple[str, str]:
+    guest_name = f"guest:{guest_session_id}"
+    guest_password = secrets.token_urlsafe(32)
+    return guest_name, hash_password(guest_password)
 
 def require_role(*roles: str):
     """指定したロール以外はアクセス拒否するデコレーター"""
